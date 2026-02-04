@@ -1,8 +1,8 @@
 streamlit
 pandas
-numpy
 matplotlib
 seaborn
-scikit-learn
+scikit-learn==1.5.2  # Una versión ligeramente anterior suele ser más estable en el despliegue
 faker
 xlsxwriter
+pyarrow
