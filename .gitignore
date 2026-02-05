@@ -1,5 +1,46 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
 .env
-.streamlit/
+.env.local
+
+# Datos generados/temporales
 *.csv
+*.xlsx
+*.xls
+
+# Informes generados (opcional - ver nota abajo)
+# Informe_*.docx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Jupyter Notebooks (si usas)
+.ipynb_checkpoints/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
