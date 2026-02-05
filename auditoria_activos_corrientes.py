@@ -15,6 +15,7 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 import streamlit as st
 import os
+import tempfile
 from generador_informe import GeneradorInformeAuditoria
 
 # Configuración de la página
@@ -485,13 +486,19 @@ def main():
                                 fecha_auditoria=fecha_auditoria
                             )
                             
+                            # Usar directorio temporal
+                            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
+                                ruta_informe = tmp_file.name
+                            
                             # Generar informe
-                            ruta_informe = f"/home/claude/Informe_Auditoria_Activos_Corrientes_{fecha_auditoria.strftime('%Y%m%d')}.docx"
                             generador.generar_informe(resumen_df, data_dict, ruta_informe)
                             
                             # Leer archivo para descarga
                             with open(ruta_informe, 'rb') as f:
                                 docx_data = f.read()
+                            
+                            # Limpiar archivo temporal
+                            os.unlink(ruta_informe)
                             
                             st.success("✅ Informe generado exitosamente")
                             
@@ -504,6 +511,9 @@ def main():
                             )
                         except Exception as e:
                             st.error(f"❌ Error al generar informe: {str(e)}")
+                            st.error(f"Detalles del error: {type(e).__name__}")
+                            import traceback
+                            st.code(traceback.format_exc())
             
             # ============================================
             # SECCIÓN 4: RECOMENDACIONES
