@@ -265,93 +265,152 @@ def generar_resumen_hallazgos(data_dict):
 # INTERFAZ STREAMLIT
 # ===============================================================
 
+def mostrar_informes_auditoria():
+    """Muestra los informes de auditoría disponibles"""
+    st.header("📄 Informes de Auditoría")
+    st.markdown("""
+        Informes profesionales de auditoría de Activos Corrientes.
+    """)
+    
+    # Ruta de los informes
+    ruta_informes = "data/informes_auditoria_corrientes"
+    
+    # Verificar si existe el directorio
+    if not os.path.exists(ruta_informes):
+        st.warning(f"⚠️ No se encontró el directorio de informes: {ruta_informes}")
+        st.info("Los informes se generarán automáticamente cuando se configure el sistema.")
+        return
+    
+    # Buscar archivos PDF
+    archivos_pdf = sorted([f for f in os.listdir(ruta_informes) if f.endswith('.pdf')])
+    
+    if not archivos_pdf:
+        st.warning("⚠️ No se encontraron informes de auditoría en el directorio.")
+        return
+    
+    st.success(f"✅ Se encontraron {len(archivos_pdf)} informes de auditoría")
+    st.markdown("---")
+    
+    # Selector de informe
+    informe_seleccionado = st.selectbox(
+        "📂 Seleccione un informe:",
+        archivos_pdf,
+        format_func=lambda x: x.replace('_', ' ').replace('.pdf', '').title()
+    )
+    
+    if informe_seleccionado:
+        ruta_completa = os.path.join(ruta_informes, informe_seleccionado)
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader(f"📋 {informe_seleccionado.replace('_', ' ').replace('.pdf', '').title()}")
+        
+        with col2:
+            with open(ruta_completa, 'rb') as file:
+                st.download_button(
+                    label="⬇️ Descargar PDF",
+                    data=file.read(),
+                    file_name=informe_seleccionado,
+                    mime="application/pdf"
+                )
+
+
 def main():
     st.title("📊 Sistema de Auditoría de Activos Corrientes")
     st.markdown("### Conforme a RT 7, RT 37 y Normas Internacionales de Auditoría (NIAs)")
     
-    st.sidebar.header("⚙️ Configuración de Auditoría")
-    empresa_nombre = st.sidebar.text_input("Razón Social", "EMPRESA EJEMPLO S.A.")
-    empresa_cuit = st.sidebar.text_input("CUIT", "30-12345678-9")
-    fecha_auditoria = st.sidebar.date_input("Fecha de Auditoría", datetime.now())
+    # Crear pestañas
+    tab1, tab2 = st.tabs(["🔍 Análisis y Auditoría", "📄 Informes de Auditoría"])
     
-    rubros_seleccionados = st.sidebar.multiselect(
-        "Seleccione los rubros:",
-        ["Caja y Bancos", "Inversiones Temporarias", "Cuentas a Cobrar", "Inventarios", "Gastos Pagados por Adelantado"],
-        default=["Caja y Bancos", "Inversiones Temporarias", "Cuentas a Cobrar"]
-    )
+    with tab1:
+        st.sidebar.header("⚙️ Configuración de Auditoría")
+        empresa_nombre = st.sidebar.text_input("Razón Social", "EMPRESA EJEMPLO S.A.")
+        empresa_cuit = st.sidebar.text_input("CUIT", "30-12345678-9")
+        fecha_auditoria = st.sidebar.date_input("Fecha de Auditoría", datetime.now())
+        
+        rubros_seleccionados = st.sidebar.multiselect(
+            "Seleccione los rubros:",
+            ["Caja y Bancos", "Inversiones Temporarias", "Cuentas a Cobrar", "Inventarios", "Gastos Pagados por Adelantado"],
+            default=["Caja y Bancos", "Inversiones Temporarias", "Cuentas a Cobrar"]
+            )
+        
+        if st.sidebar.button("🚀 Iniciar Auditoría Completa", type="primary"):
+            with st.spinner('Ejecutando auditoría integral...'):
+                data_dict = {}
+                if "Caja y Bancos" in rubros_seleccionados:
+                    df = generar_caja()
+                    df = auditoria_isolation_forest(df, ['monto', 'saldo_acumulado'])
+                    df = aplicar_reglas_negocio(df, 'Caja')
+                    data_dict['Caja y Bancos'] = df
+                
+                if "Inversiones Temporarias" in rubros_seleccionados:
+                    df = generar_inversiones()
+                    df = auditoria_isolation_forest(df, ['monto_inicial', 'tasa_anual', 'valor_actual'])
+                    df = aplicar_reglas_negocio(df, 'Inversiones')
+                    data_dict['Inversiones'] = df
+                
+                if "Cuentas a Cobrar" in rubros_seleccionados:
+                    df = generar_cuentas_cobrar()
+                    df = auditoria_isolation_forest(df, ['monto_original', 'saldo_pendiente'])
+                    df = aplicar_reglas_negocio(df, 'Cuentas a Cobrar')
+                    data_dict['Cuentas a Cobrar'] = df
+
+                if "Inventarios" in rubros_seleccionados:
+                    df = generar_inventarios()
+                    df = auditoria_isolation_forest(df, ['cantidad', 'costo_unitario', 'valor_total'])
+                    df = aplicar_reglas_negocio(df, 'Inventarios')
+                    data_dict['Inventarios'] = df
+
+                if "Gastos Pagados por Adelantado" in rubros_seleccionados:
+                    df = generar_prepagos()
+                    df = auditoria_isolation_forest(df, ['monto_total', 'monto_mensual'])
+                    df = aplicar_reglas_negocio(df, 'Prepagos')
+                    data_dict['Prepagos'] = df
+
+                st.success("✅ Auditoría completada con éxito")
+                
+                # Resumen Ejecutivo
+                st.header("📋 I. Resumen Ejecutivo")
+                resumen_df = generar_resumen_hallazgos(data_dict)
+                
+                col1, col2, col3, col4 = st.columns(4)
+                total_row = resumen_df[resumen_df['Rubro'] == 'TOTAL ACTIVOS CORRIENTES'].iloc[0]
+                col1.metric("Total Activos", f"${total_row['Saldo ($)']:,.2f}")
+                col2.metric("Items Auditados", int(total_row['Cantidad']))
+                col3.metric("Anomalías", int(total_row['Anomalías']))
+                col4.metric("% Anomalías", f"{(total_row['Anomalías']/total_row['Cantidad']*100):.1f}%")
+                
+                st.dataframe(resumen_df, use_container_width=True)
+                
+                # Hallazgos Detallados
+                st.header("🔍 II. Hallazgos Detallados")
+                for rubro, df in data_dict.items():
+                    with st.expander(f"📂 {rubro}"):
+                        st.dataframe(df[df['resultado_if'] == 'Anómalo'], use_container_width=True)
+                        fig, ax = plt.subplots(figsize=(10, 4))
+                        if rubro == 'Caja y Bancos':
+                            plt.plot(pd.to_datetime(df['fecha_hora']), df['saldo_acumulado'])
+                        else:
+                            sns.scatterplot(data=df, x=df.columns[3], y=df.columns[4], hue='resultado_if')
+                        st.pyplot(fig)
+
+                # Descargas
+                st.header("📥 III. Generación de Informe")
+                if st.button("📄 Generar Informe Word (DOCX)"):
+                    try:
+                        generador = GeneradorInformeAuditoria(empresa_nombre, empresa_cuit, fecha_auditoria)
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                            generador.generar_informe(resumen_df, data_dict, tmp.name)
+                            with open(tmp.name, 'rb') as f:
+                                st.download_button("💾 Descargar Informe", f.read(), 
+                                                 file_name=f"Informe_{empresa_nombre}.docx")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
     
-    if st.sidebar.button("🚀 Iniciar Auditoría Completa", type="primary"):
-        with st.spinner('Ejecutando auditoría integral...'):
-            data_dict = {}
-            if "Caja y Bancos" in rubros_seleccionados:
-                df = generar_caja()
-                df = auditoria_isolation_forest(df, ['monto', 'saldo_acumulado'])
-                df = aplicar_reglas_negocio(df, 'Caja')
-                data_dict['Caja y Bancos'] = df
-            
-            if "Inversiones Temporarias" in rubros_seleccionados:
-                df = generar_inversiones()
-                df = auditoria_isolation_forest(df, ['monto_inicial', 'tasa_anual', 'valor_actual'])
-                df = aplicar_reglas_negocio(df, 'Inversiones')
-                data_dict['Inversiones'] = df
-            
-            if "Cuentas a Cobrar" in rubros_seleccionados:
-                df = generar_cuentas_cobrar()
-                df = auditoria_isolation_forest(df, ['monto_original', 'saldo_pendiente'])
-                df = aplicar_reglas_negocio(df, 'Cuentas a Cobrar')
-                data_dict['Cuentas a Cobrar'] = df
+    with tab2:
+        mostrar_informes_auditoria()
 
-            if "Inventarios" in rubros_seleccionados:
-                df = generar_inventarios()
-                df = auditoria_isolation_forest(df, ['cantidad', 'costo_unitario', 'valor_total'])
-                df = aplicar_reglas_negocio(df, 'Inventarios')
-                data_dict['Inventarios'] = df
-
-            if "Gastos Pagados por Adelantado" in rubros_seleccionados:
-                df = generar_prepagos()
-                df = auditoria_isolation_forest(df, ['monto_total', 'monto_mensual'])
-                df = aplicar_reglas_negocio(df, 'Prepagos')
-                data_dict['Prepagos'] = df
-
-            st.success("✅ Auditoría completada con éxito")
-            
-            # Resumen Ejecutivo
-            st.header("📋 I. Resumen Ejecutivo")
-            resumen_df = generar_resumen_hallazgos(data_dict)
-            
-            col1, col2, col3, col4 = st.columns(4)
-            total_row = resumen_df[resumen_df['Rubro'] == 'TOTAL ACTIVOS CORRIENTES'].iloc[0]
-            col1.metric("Total Activos", f"${total_row['Saldo ($)']:,.2f}")
-            col2.metric("Items Auditados", int(total_row['Cantidad']))
-            col3.metric("Anomalías", int(total_row['Anomalías']))
-            col4.metric("% Anomalías", f"{(total_row['Anomalías']/total_row['Cantidad']*100):.1f}%")
-            
-            st.dataframe(resumen_df, use_container_width=True)
-            
-            # Hallazgos Detallados
-            st.header("🔍 II. Hallazgos Detallados")
-            for rubro, df in data_dict.items():
-                with st.expander(f"📂 {rubro}"):
-                    st.dataframe(df[df['resultado_if'] == 'Anómalo'], use_container_width=True)
-                    fig, ax = plt.subplots(figsize=(10, 4))
-                    if rubro == 'Caja y Bancos':
-                        plt.plot(pd.to_datetime(df['fecha_hora']), df['saldo_acumulado'])
-                    else:
-                        sns.scatterplot(data=df, x=df.columns[3], y=df.columns[4], hue='resultado_if')
-                    st.pyplot(fig)
-
-            # Descargas
-            st.header("📥 III. Generación de Informe")
-            if st.button("📄 Generar Informe Word (DOCX)"):
-                try:
-                    generador = GeneradorInformeAuditoria(empresa_nombre, empresa_cuit, fecha_auditoria)
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                        generador.generar_informe(resumen_df, data_dict, tmp.name)
-                        with open(tmp.name, 'rb') as f:
-                            st.download_button("💾 Descargar Informe", f.read(), 
-                                             file_name=f"Informe_{empresa_nombre}.docx")
-                except Exception as e:
-                    st.error(f"Error: {e}")
 
 if __name__ == '__main__':
     main()
